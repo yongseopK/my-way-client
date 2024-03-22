@@ -5,7 +5,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:get/route_manager.dart';
+import 'package:my_way_client/screens/screen_login.dart';
 import 'package:my_way_client/utils/http_config.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -122,53 +125,43 @@ class _NaverMapAppState extends State<NaverMapApp> {
   }
 
   final dio = Dio();
-
-  void searchMap() async {
-    Options options = Options(headers: {
-      "X-NCP-APIGW-API-KEY-ID": naverMapApiKey,
-      "X-NCP-APIGW-API-KEY": naverMapApiSecretKey,
-    });
-
-    Response response = await dio.get(
-      geocodingSearchUrl,
-      queryParameters: {'query': userSearchValue},
-      options: options,
-    );
-
-    if (response.statusCode == 200) {
-      debugPrint("request search word : $userSearchValue");
-      debugPrint("response : $response");
-    }
-  }
+  bool isLogin = false;
 
   @override
   Widget build(BuildContext context) {
     double width = MediaQuery.of(context).size.width;
     double height = MediaQuery.of(context).size.height;
 
-    return MaterialApp(
+    return GetMaterialApp(
       home: Scaffold(
         drawer: Drawer(
           width: width * 0.645,
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              const DrawerHeader(
-                decoration: BoxDecoration(
-                  color: Colors.blue,
-                ),
-                child: Text("Drawer Header"),
-              ),
-              ListTile(
-                title: const Text("Item 1"),
-                onTap: () => debugPrint("1번 누름"),
-              ),
-              ListTile(
-                title: const Text("Item 2"),
-                onTap: () => debugPrint("2번 누름"),
-              )
-            ],
-          ),
+          child: !isLogin
+              ? ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    UserAccountsDrawerHeader(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[700],
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(20.0),
+                          bottomRight: Radius.circular(20.0),
+                        ),
+                      ),
+                      currentAccountPicture: ClipRRect(
+                        borderRadius: BorderRadius.circular(100),
+                        child: Image.asset("assets/images/anonymous.jpeg"),
+                      ),
+                      accountName: const Text("로그인이 필요한 서비스입니다."),
+                      accountEmail: const Text(""),
+                    ),
+                    ListTile(
+                      title: const Text("로그인"),
+                      onTap: () => Get.to(() => const SignInPage()),
+                    ),
+                  ],
+                )
+              : Container(),
         ),
         body: Stack(
           children: [
@@ -185,12 +178,13 @@ class _NaverMapAppState extends State<NaverMapApp> {
                       indoorEnable: true,
                       locationButtonEnable: true,
                       scrollGesturesFriction: 0,
-                      logoClickEnable: false,
                       mapType: NMapType.navi,
                       activeLayerGroups: [
                         NLayerGroup.building,
-                        NLayerGroup.transit
+                        NLayerGroup.transit,
                       ],
+                      minZoom: 5.0,
+                      maxZoom: 21.0,
                     ),
                     onMapReady: (controller) async {
                       _controller = controller;
@@ -228,16 +222,32 @@ class _NaverMapAppState extends State<NaverMapApp> {
                             child: SizedBox(
                               width: 50,
                               height: 50,
-                              child: Builder(builder: (context) {
-                                return ElevatedButton(
-                                  onPressed: () {
-                                    debugPrint("메뉴버튼 눌림");
-                                    Scaffold.of(context).openDrawer();
-                                    FocusScope.of(context).unfocus();
-                                  },
-                                  child: const Icon(Icons.menu),
-                                );
-                              }),
+                              child: Builder(
+                                builder: (context) {
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey,
+                                      borderRadius: BorderRadius.circular(5),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.grey.shade600,
+                                          offset: const Offset(2.0, 2.0),
+                                          blurRadius: 3.0,
+                                        ),
+                                      ],
+                                    ),
+                                    child: IconButton(
+                                      color: Colors.white,
+                                      onPressed: () {
+                                        // debugPrint("메뉴버튼 눌림");
+                                        Scaffold.of(context).openDrawer();
+                                        FocusScope.of(context).unfocus();
+                                      },
+                                      icon: const Icon(Icons.menu),
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
                           ),
                           const SizedBox(
@@ -245,9 +255,17 @@ class _NaverMapAppState extends State<NaverMapApp> {
                           ),
                           Expanded(
                             flex: 6,
-                            child: Material(
-                              elevation: 4.0,
-                              borderRadius: BorderRadius.circular(5),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(5),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.shade600,
+                                    offset: const Offset(2.0, 2.0),
+                                    blurRadius: 3.0,
+                                  ),
+                                ],
+                              ),
                               child: TextField(
                                 controller: _searchController,
                                 onSubmitted: (e) {
@@ -271,15 +289,27 @@ class _NaverMapAppState extends State<NaverMapApp> {
                           ),
                           Expanded(
                             flex: 1,
-                            child: SizedBox(
+                            child: Container(
                               width: 50,
                               height: 50,
-                              child: ElevatedButton(
+                              decoration: BoxDecoration(
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.shade600,
+                                    offset: const Offset(2.0, 2.0),
+                                    blurRadius: 3.0,
+                                  ),
+                                ],
+                                color: Colors.grey,
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: IconButton(
+                                color: Colors.white,
                                 onPressed: () async {
                                   FocusManager.instance.primaryFocus?.unfocus();
                                   searchPlace();
                                 },
-                                child: const Icon(Icons.search),
+                                icon: const Icon(Icons.search),
                               ),
                             ),
                           ),
@@ -304,24 +334,27 @@ class _NaverMapAppState extends State<NaverMapApp> {
                                           searchPlaceRoadAddress[index];
                                       final mapx = searchPlaceMapx[index];
                                       final mapy = searchPlaceMapy[index];
-                                      final distance = _position!.distanceTo(NLatLng(mapy, mapx));
+                                      final distance = _position!
+                                          .distanceTo(NLatLng(mapy, mapx));
 
                                       return GestureDetector(
                                         onTap: () async {
-                                          debugPrint(placeName);
-                                          debugPrint(roadAddress);
-                                          debugPrint(mapx.toString());
-                                          debugPrint(mapy.toString());
-
                                           final cameraUpdate =
                                               NCameraUpdate.withParams(
                                             target: NLatLng(mapy, mapx),
-                                            zoom: zoomLevel,
+                                            zoom: 16,
                                           );
 
                                           marker = NMarker(
-                                              id: 'selectionPlace',
-                                              position: NLatLng(mapy, mapx));
+                                            id: 'selectionPlace',
+                                            position: NLatLng(mapy, mapx),
+                                          );
+
+                                          marker.setOnTapListener(
+                                              (NMarker marker) {
+                                            debugPrint(
+                                                "마커 클릭됨 ${marker.position}");
+                                          });
                                           setState(() {
                                             searchPlaceNames =
                                                 List<String>.empty();
@@ -347,7 +380,6 @@ class _NaverMapAppState extends State<NaverMapApp> {
                                                 : "${(distance / 1000).toStringAsFixed(2)}Km",
                                           ),
                                         ),
-
                                       );
                                     },
                                   ),
@@ -375,48 +407,86 @@ class _NaverMapAppState extends State<NaverMapApp> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(5),
                               color: Colors.white,
+                              border: Border.all(
+                                color: Colors.grey.shade300,
+                              ),
                             ),
                             child: Column(
                               children: [
                                 Container(
                                   decoration: const BoxDecoration(
-                                      border: Border(
-                                          bottom: BorderSide(
-                                              color: Colors.grey, width: 1.0))),
+                                    border: Border(
+                                      bottom: BorderSide(
+                                        color: Colors.grey,
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                  ),
                                   child: IconButton(
-                                      onPressed: () {
-                                        setState(() {
-                                          zoomLevel += 1;
-                                          var nCameraUpdate =
-                                              NCameraUpdate.withParams(
-                                            zoom: zoomLevel,
-                                          );
-                                          nCameraUpdate.setAnimation(animation: NCameraAnimation.none);
-                                          _controller!
-                                              .updateCamera(nCameraUpdate);
-                                        });
-                                      },
-                                      icon:
-                                          const Icon(Icons.keyboard_arrow_up)),
+                                    onPressed: () {
+                                      setState(
+                                        () {
+                                          if (zoomLevel < 21.0) {
+                                            zoomLevel += 1;
+                                            var nCameraUpdate =
+                                                NCameraUpdate.withParams(
+                                              zoom: zoomLevel,
+                                            );
+                                            // nCameraUpdate.setAnimation(
+                                            //   animation: NCameraAnimation.none,
+                                            // );
+                                            _controller!
+                                                .updateCamera(nCameraUpdate);
+                                          } else {
+                                            Fluttertoast.showToast(
+                                              msg: "더 이상 확대할 수 없습니다.",
+                                              toastLength: Toast.LENGTH_LONG,
+                                              gravity: ToastGravity.CENTER,
+                                              textColor: Colors.white,
+                                              backgroundColor: Colors.black,
+                                              fontSize: 16.0,
+                                            );
+                                          }
+                                        },
+                                      );
+                                    },
+                                    icon: const Icon(Icons.keyboard_arrow_up),
+                                  ),
                                 ),
                                 IconButton(
                                     onPressed: () {
-                                      setState(() {
-                                        zoomLevel -= 1;
-                                        var nCameraUpdate =
-                                            NCameraUpdate.withParams(
-                                          zoom: zoomLevel,
-                                        );
-                                        nCameraUpdate.setAnimation(animation: NCameraAnimation.none);
+                                      setState(
+                                        () {
+                                          if (zoomLevel > 5.0) {
+                                            zoomLevel -= 1;
+                                            var nCameraUpdate =
+                                                NCameraUpdate.withParams(
+                                              zoom: zoomLevel,
+                                            );
 
-                                        _controller!
-                                            .updateCamera(nCameraUpdate);
-                                      });
+                                            // nCameraUpdate.setAnimation(
+                                            //   animation: NCameraAnimation.none,
+                                            // );
+
+                                            _controller!
+                                                .updateCamera(nCameraUpdate);
+                                          } else {
+                                            Fluttertoast.showToast(
+                                              msg: "더 이상 축소할 수 없습니다.",
+                                              toastLength: Toast.LENGTH_LONG,
+                                              gravity: ToastGravity.CENTER,
+                                              textColor: Colors.white,
+                                              backgroundColor: Colors.black,
+                                              fontSize: 16.0,
+                                            );
+                                          }
+                                        },
+                                      );
                                     },
                                     icon: const Icon(Icons.keyboard_arrow_down))
                               ],
                             ),
-                          )
+                          ),
                         ],
                       ),
                     ),
@@ -438,7 +508,7 @@ class _NaverMapAppState extends State<NaverMapApp> {
 
   void searchPlace() async {
     String searchText = _searchController.text;
-    debugPrint(searchText);
+    // debugPrint(searchText);
 
     if (searchText.isNotEmpty) {
       Response response = await dio.get(
