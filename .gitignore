@@ -253,4 +253,7 @@ fabric.properties
 pubspec.yaml
 pubspec.lock
 
+
+naver_map_init.dart
+http_config.dart
 # End of https://www.toptal.com/developers/gitignore/api/flutter,darteditor,androidstudio,xcode,macos
