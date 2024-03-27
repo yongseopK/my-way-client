@@ -5,10 +5,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/route_manager.dart';
 import 'package:my_way_client/screens/screen_login.dart';
+import 'package:my_way_client/screens/screen_my_page.dart';
 import 'package:my_way_client/utils/http_config.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -22,6 +24,8 @@ void main() async {
   );
   runApp(const NaverMapApp());
 }
+
+const storage = FlutterSecureStorage();
 
 Future<void> _initialize() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,6 +42,12 @@ class NaverMapApp extends StatefulWidget {
 }
 
 class _NaverMapAppState extends State<NaverMapApp> {
+  bool isLogin = false;
+  String? token;
+  String? username;
+  String? role;
+  String? email;
+
   // final Completer<NaverMapController> _controller = Completer();
   NaverMapController? _controller;
   NLatLng? _position;
@@ -104,10 +114,67 @@ class _NaverMapAppState extends State<NaverMapApp> {
     }
   }
 
+  Future<void> getLoginInfo() async {
+    token = await storage.read(key: 'token');
+    username = await storage.read(key: 'username');
+    role = await storage.read(key: 'role');
+    email = await storage.read(key: 'email');
+
+    if (token != null) {
+      setState(() {
+        isLogin = true;
+      });
+    } else {
+      setState(() {
+        isLogin = false;
+      });
+    }
+
+    setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
     _initializeLocationIfNeeded();
+    getLoginInfo();
+    _loadProfile();
+  }
+
+  Image? image;
+  Uint8List? imageData;
+
+  Future<void> _loadProfile() async {
+    const storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'token');
+
+    print('$token');
+
+    if (token == null) return;
+
+    String loadURL = "$memberApiBaseUrl/profile";
+    try {
+      final response = await _dio.get(loadURL,
+          options: Options(
+              responseType: ResponseType.bytes,
+              headers: {"Authorization": "Bearer $token"}));
+
+      if (response.statusCode == 200 && mounted) {
+        setState(() {
+          imageData = Uint8List.fromList(response.data);
+          image = Image.memory(
+            imageData!,
+            width: 80,
+            height: 80,
+            fit: BoxFit.cover,
+          );
+        });
+      } else {
+        throw Exception('Failed to load profile image');
+      }
+    } catch (e) {
+      print('Error fetching image: $e');
+    }
   }
 
   Future<NLatLng> _initializeLocationIfNeeded() async {
@@ -124,44 +191,178 @@ class _NaverMapAppState extends State<NaverMapApp> {
     }
   }
 
-  final dio = Dio();
-  bool isLogin = false;
+  final _dio = Dio();
 
   @override
   Widget build(BuildContext context) {
     double width = MediaQuery.of(context).size.width;
     double height = MediaQuery.of(context).size.height;
 
+    Future<void> logout() async {
+      await storage.delete(key: 'token').then((value) => token = '');
+      await storage.delete(key: 'username').then((value) => username = '');
+      await storage.delete(key: 'role').then((value) => role = '');
+      await storage.delete(key: 'email').then((value) => email = '');
+
+      if (token!.isEmpty) {
+        setState(() {
+          isLogin = false;
+          image = null;
+        });
+      } else {
+        setState(() {
+          isLogin = true;
+        });
+      }
+    }
+
     return GetMaterialApp(
+      debugShowCheckedModeBanner: false,
       home: Scaffold(
         drawer: Drawer(
           width: width * 0.645,
-          child: !isLogin
-              ? ListView(
-                  padding: EdgeInsets.zero,
-                  children: [
-                    UserAccountsDrawerHeader(
-                      decoration: BoxDecoration(
-                        color: Colors.grey[700],
-                        borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(20.0),
-                          bottomRight: Radius.circular(20.0),
+          child: Container(
+            color: Colors.white,
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                DrawerHeader(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Colors.grey[400]!, Colors.grey[800]!],
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              spreadRadius: 2,
+                              blurRadius: 5,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(50),
+                          child: image ??
+                              Image.asset(
+                                "assets/images/anonymous.jpeg",
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                              ),
                         ),
                       ),
-                      currentAccountPicture: ClipRRect(
-                        borderRadius: BorderRadius.circular(100),
-                        child: Image.asset("assets/images/anonymous.jpeg"),
+                      const SizedBox(height: 10),
+                      !isLogin
+                          ? const Text(
+                              "로그인이 필요한 서비스입니다.",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            )
+                          : Text(
+                              username!,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                      !isLogin
+                          ? const SizedBox.shrink()
+                          : Text(
+                              email!,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                    ],
+                  ),
+                ),
+                isLogin
+                    ? ListTile(
+                        leading: const Icon(Icons.person, color: Colors.grey),
+                        title: const Text(
+                          "마이페이지",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        onTap: () {
+                          Get.to(() => MyPage(
+                                propsImage: imageData!,
+                              ))?.then((value) {
+                            _loadProfile();
+                            getLoginInfo();
+                          });
+                        },
+                      )
+                    : const SizedBox.shrink(),
+                !isLogin
+                    ? ListTile(
+                        leading: const Icon(Icons.login, color: Colors.grey),
+                        title: const Text(
+                          "로그인",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        onTap: () {
+                          Get.to(() => const SignInPage())!.then((value) {
+                            getLoginInfo();
+                            _loadProfile();
+                          });
+                        },
+                      )
+                    : ListTile(
+                        leading: const Icon(Icons.logout, color: Colors.grey),
+                        title: const Text(
+                          "로그아웃",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        onTap: () async {
+                          await logout();
+                        },
                       ),
-                      accountName: const Text("로그인이 필요한 서비스입니다."),
-                      accountEmail: const Text(""),
+                ListTile(
+                  leading: const Icon(Icons.vpn_key, color: Colors.grey),
+                  title: const Text(
+                    "토큰확인",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
-                    ListTile(
-                      title: const Text("로그인"),
-                      onTap: () => Get.to(() => const SignInPage()),
-                    ),
-                  ],
-                )
-              : Container(),
+                  ),
+                  onTap: () {
+                    print('isLogin : $isLogin');
+                    print('token : $token');
+                    print('username : $username');
+                    print('role : $role');
+                    print('email : $email');
+                  },
+                ),
+              ],
+            ),
+          ),
         ),
         body: Stack(
           children: [
@@ -508,10 +709,9 @@ class _NaverMapAppState extends State<NaverMapApp> {
 
   void searchPlace() async {
     String searchText = _searchController.text;
-    // debugPrint(searchText);
 
     if (searchText.isNotEmpty) {
-      Response response = await dio.get(
+      Response response = await _dio.get(
         "https://openapi.naver.com/v1/search/local.json",
         queryParameters: {'query': searchText, "display": 5},
         options: Options(

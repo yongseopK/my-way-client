@@ -245,6 +245,7 @@ class _SignUpPageState extends State<SignUpPage> {
                       style: const TextStyle(color: Colors.red),
                     ),
                   TextFormField(
+                    textInputAction: TextInputAction.next,
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
@@ -259,7 +260,9 @@ class _SignUpPageState extends State<SignUpPage> {
                         ),
                       ),
                     ),
-                    onChanged: _checkEmailDuplicate,
+                    onChanged: (value) {
+                      _checkEmailDuplicate(value);
+                    },
                   ),
                   SizedBox(height: height * 0.03),
                   const Text(
@@ -274,6 +277,7 @@ class _SignUpPageState extends State<SignUpPage> {
                       style: const TextStyle(color: Colors.red),
                     ),
                   TextFormField(
+                    textInputAction: TextInputAction.next,
                     controller: _nameController,
                     onChanged: (value) => nameHandler(value),
                     decoration: InputDecoration(
@@ -302,6 +306,7 @@ class _SignUpPageState extends State<SignUpPage> {
                       style: const TextStyle(color: Colors.red),
                     ),
                   TextFormField(
+                    textInputAction: TextInputAction.next,
                     controller: _passwordController,
                     obscureText: true,
                     onChanged: (value) => passwordHandler(value),
@@ -331,6 +336,7 @@ class _SignUpPageState extends State<SignUpPage> {
                       style: const TextStyle(color: Colors.red),
                     ),
                   TextFormField(
+                    textInputAction: TextInputAction.next,
                     controller: _confirmPasswordController,
                     obscureText: true,
                     onChanged: (value) {
@@ -397,6 +403,7 @@ class _SignUpPageState extends State<SignUpPage> {
                       style: const TextStyle(color: Colors.red),
                     ),
                   TextFormField(
+                    textInputAction: TextInputAction.next,
                     controller: _weightController,
                     onChanged: (value) => weightHandler(value),
                     decoration: InputDecoration(
@@ -427,6 +434,7 @@ class _SignUpPageState extends State<SignUpPage> {
                       ),
                     ),
                   TextFormField(
+                    textInputAction: TextInputAction.done,
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(8),
@@ -458,6 +466,7 @@ class _SignUpPageState extends State<SignUpPage> {
                         value: 'male',
                         groupValue: _selectedGender,
                         onChanged: (value) {
+                          FocusScope.of(context).unfocus();
                           setState(() {
                             _selectedGender = value;
                             correct[6] = true;
@@ -469,6 +478,7 @@ class _SignUpPageState extends State<SignUpPage> {
                         value: 'female',
                         groupValue: _selectedGender,
                         onChanged: (value) {
+                          FocusScope.of(context).unfocus();
                           setState(() {
                             _selectedGender = value;
                             correct[6] = true;
