@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -30,11 +31,15 @@ class _MyPageState extends State<MyPage> {
   String? profileImg;
   String? joinDate;
 
+  final passwordController = TextEditingController();
+
   Image? image;
   Uint8List? imageData;
   File? imageFile;
 
   bool isLoading = true;
+
+  bool _profileImageChanged = false;
 
   @override
   void initState() {
@@ -82,8 +87,6 @@ class _MyPageState extends State<MyPage> {
   Future<void> _loadProfile() async {
     const storage = FlutterSecureStorage();
     final token = await storage.read(key: 'token');
-
-    print('$token');
 
     if (token == null) return;
 
@@ -150,6 +153,17 @@ class _MyPageState extends State<MyPage> {
           toastLength: Toast.LENGTH_LONG,
           gravity: ToastGravity.BOTTOM,
         );
+
+        setState(() {
+          _profileImageChanged = true;
+          imageData = imageFile!.readAsBytesSync();
+          image = Image.memory(
+            imageData!,
+            width: 150,
+            height: 150,
+            fit: BoxFit.cover,
+          );
+        });
       }
     } on DioException catch (e) {
       if (e.response!.statusCode == 400) {
@@ -169,151 +183,260 @@ class _MyPageState extends State<MyPage> {
     );
   }
 
+  Future<void> withdrawMembership() async {
+    final storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'token');
+
+    String withdrawURL = "$memberApiBaseUrl/delete";
+    try {
+      final response = await _dio.delete(withdrawURL,
+          options: Options(
+            headers: {
+              "Authorization": "Bearer $token",
+              "Content-Type": "Application/json"
+            },
+          ),
+          data: {"password": passwordController.text});
+
+      if (response.statusCode == 200) {
+        Fluttertoast.showToast(
+          msg: "회원탈퇴가 완료되었습니다.",
+          toastLength: Toast.LENGTH_LONG,
+        );
+
+        setState(() {
+          isLogout = 1;
+          passwordController.text = '';
+        });
+        Navigator.pop(context, isLogout);
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 555) {
+        _handleError(e.response!.data.toString());
+      }
+    } catch (e) {
+      _handleError("$e");
+    }
+  }
+
   @override
   void dispose() {
     super.dispose();
   }
+
+  double? startDragPosition;
+  int isLogout = 0;
 
   @override
   Widget build(BuildContext context) {
     double width = MediaQuery.of(context).size.width;
     double height = MediaQuery.of(context).size.height;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          "내 정보",
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-      ),
-      body: SafeArea(
-        child: isLoading
-            ? const Center(
-                child: CircularProgressIndicator(),
-              )
-            : Column(
-                children: [
-                  Expanded(
-                    child: ListView(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+    return GestureDetector(
+      onHorizontalDragStart: (details) {
+        startDragPosition = details.globalPosition.dx;
+      },
+      onHorizontalDragEnd: (details) {
+        if (startDragPosition != null &&
+            startDragPosition! < 100 &&
+            details.velocity.pixelsPerSecond.dx > 300) {
+          Navigator.pop(context, _profileImageChanged);
+          startDragPosition = null; // reset for next drag operation
+        }
+      },
+      child: WillPopScope(
+        onWillPop: () async {
+          Navigator.pop(context, _profileImageChanged);
+          return true;
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text(
+              "내 정보",
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+          body: SafeArea(
+            child: isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(),
+                  )
+                : Column(
+                    children: [
+                      Expanded(
+                        child: ListView(
                           children: [
-                            Stack(
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Container(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.2),
-                                        spreadRadius: 2,
-                                        blurRadius: 5,
-                                        offset: const Offset(0, 3),
-                                      ),
-                                    ],
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(100),
-                                    child: widget.propsImage.isNotEmpty
-                                        ? Image.memory(
-                                            widget.propsImage,
-                                            width: 150,
-                                            height: 150,
-                                            fit: BoxFit.cover,
-                                          )
-                                        : Image.asset(
-                                            "assets/images/anonymous.jpeg",
-                                            width: 150,
-                                            height: 150,
-                                            fit: BoxFit.cover,
-                                          ),
-                                  ),
-                                ),
-                                Positioned(
-                                  bottom: 10,
-                                  right: 0,
-                                  child: GestureDetector(
-                                    onTap: () async {
-                                      await changeProfileImage()
-                                          .then((value) async {
-                                        await _loadProfile();
-                                      });
-                                    },
-                                    child: Container(
-                                      width: 40,
-                                      height: 40,
+                                Stack(
+                                  children: [
+                                    Container(
                                       decoration: BoxDecoration(
-                                        border: Border.all(
-                                            width: 3, color: Colors.white),
-                                        borderRadius: BorderRadius.circular(50),
-                                        color: Colors.black,
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color:
+                                                Colors.black.withOpacity(0.2),
+                                            spreadRadius: 2,
+                                            blurRadius: 5,
+                                            offset: const Offset(0, 3),
+                                          ),
+                                        ],
                                       ),
-                                      child: const Icon(
-                                        Icons.add,
-                                        color: Colors.white,
+                                      child: ClipRRect(
+                                        borderRadius:
+                                            BorderRadius.circular(100),
+                                        child: image ??
+                                            Image.memory(
+                                              widget.propsImage,
+                                              width: 150,
+                                              height: 150,
+                                              fit: BoxFit.cover,
+                                            ),
                                       ),
                                     ),
-                                  ),
+                                    Positioned(
+                                      bottom: 10,
+                                      right: 0,
+                                      child: GestureDetector(
+                                        onTap: () async {
+                                          await changeProfileImage()
+                                              .then((value) async {
+                                            // await _loadProfile();
+                                          });
+                                        },
+                                        child: Container(
+                                          width: 40,
+                                          height: 40,
+                                          decoration: BoxDecoration(
+                                            border: Border.all(
+                                                width: 3, color: Colors.white),
+                                            borderRadius:
+                                                BorderRadius.circular(50),
+                                            color: Colors.black,
+                                          ),
+                                          child: const Icon(
+                                            Icons.add,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 15, vertical: 20),
+                              child: Column(
+                                children: [
+                                  _buildListTile("이메일", email!),
+                                  _buildListTileWithIcon(
+                                      "이름", username!, Icons.arrow_forward_ios),
+                                  _buildListTileWithIcon("생년월일", birthdate!,
+                                      Icons.arrow_forward_ios),
+                                  _buildListTileWithIcon("몸무게", "${weight!} Kg",
+                                      Icons.arrow_forward_ios),
+                                  _buildListTileWithIcon(
+                                      "성별",
+                                      gender! == "MALE" ? "남성" : "여성",
+                                      Icons.arrow_forward_ios),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 15, vertical: 20),
-                          child: Column(
-                            children: [
-                              _buildListTile("이메일", email!),
-                              _buildListTileWithIcon(
-                                  "이름", username!, Icons.arrow_forward_ios),
-                              _buildListTileWithIcon(
-                                  "생년월일", birthdate!, Icons.arrow_forward_ios),
-                              _buildListTileWithIcon("몸무게", "${weight!} Kg",
-                                  Icons.arrow_forward_ios),
-                              _buildListTileWithIcon(
-                                  "성별",
-                                  gender! == "MALE" ? "남성" : "여성",
-                                  Icons.arrow_forward_ios),
-                            ],
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          TextButton(
+                            child: const Text(
+                              "로그아웃",
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                            onPressed: () async {
+                              // await logout();
+                              setState(() {
+                                isLogout = 1;
+                              });
+
+                              Navigator.pop(context, isLogout);
+                            },
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      TextButton(
-                        child: const Text(
-                          "로그아웃",
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                        onPressed: () {
-                          print('로그아웃 버튼');
-                        },
-                      ),
-                      Container(
-                        height: 15,
-                        width: 1,
-                        decoration: const BoxDecoration(
-                          color: Colors.grey,
-                        ),
-                      ),
-                      TextButton(
-                        child: const Text(
-                          "회원탈퇴",
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                        onPressed: () {
-                          print('탈퇴버튼');
-                        },
+                          Container(
+                            height: 15,
+                            width: 1,
+                            decoration: const BoxDecoration(
+                              color: Colors.grey,
+                            ),
+                          ),
+                          TextButton(
+                            child: const Text(
+                              "회원탈퇴",
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return GestureDetector(
+                                    onTap: () {
+                                      FocusScope.of(context).unfocus();
+                                    },
+                                    child: AlertDialog(
+                                      title: const Text('회원탈퇴'),
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Text(
+                                            '회원탈퇴를 진행하시려면 비밀번호를 입력해주세요.',
+                                          ),
+                                          const SizedBox(height: 16),
+                                          TextField(
+                                            controller: passwordController,
+                                            obscureText: true,
+                                            decoration: const InputDecoration(
+                                              labelText: '비밀번호',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () {
+                                            passwordController.text = '';
+                                            Navigator.of(context).pop();
+                                          },
+                                          child: const Text('취소'),
+                                        ),
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            if (passwordController
+                                                .text.isNotEmpty) {
+                                              withdrawMembership();
+                                              Navigator.of(context).pop();
+                                            } else {
+                                              _handleError("입력란이 비어있습니다!");
+                                            }
+                                          },
+                                          child: const Text('확인'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
+          ),
+        ),
       ),
     );
   }

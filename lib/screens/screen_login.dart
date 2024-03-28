@@ -21,6 +21,10 @@ class _SignInPageState extends State<SignInPage> {
 
   final _dio = Dio();
 
+  bool _obscureText = true;
+
+  // Key loginButtonKey = ;
+
   static const String TOKEN_KEY = 'token';
   static const String USERNAME_KEY = 'username';
   static const String ROLE_KEY = 'role';
@@ -74,6 +78,12 @@ class _SignInPageState extends State<SignInPage> {
           toastLength: Toast.LENGTH_LONG,
           backgroundColor: Colors.red,
         );
+      } else {
+        Fluttertoast.showToast(
+          msg: "알 수 없는 에러가 발생했습니다.",
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+        );
       }
     } catch (e) {
       print(e);
@@ -126,9 +136,50 @@ class _SignInPageState extends State<SignInPage> {
                     ),
                     const Text("비밀번호(Password)"),
                     TextFormField(
-                      textInputAction: TextInputAction.done,
-                      obscureText: true,
+                      decoration: InputDecoration(
+                        suffixIcon: IconButton(
+                          icon: Icon(_obscureText
+                              ? Icons.visibility
+                              : Icons.visibility_off),
+                          onPressed: () {
+                            setState(() {
+                              _obscureText = !_obscureText;
+                            });
+                          },
+                        ),
+                      ),
+                      textInputAction: TextInputAction.join,
+                      obscureText: _obscureText,
                       controller: _passwordController,
+                      onFieldSubmitted: (_) {
+                        FocusScope.of(context).unfocus();
+
+                        if (_emailController.text.isEmpty) {
+                          Fluttertoast.showToast(
+                            msg: "이메일을 입력해주세요",
+                            toastLength: Toast.LENGTH_LONG,
+                            backgroundColor: Colors.red,
+                            gravity: ToastGravity.BOTTOM,
+                          );
+                        } else if (_passwordController.text.isEmpty) {
+                          Fluttertoast.showToast(
+                            msg: "패스워드를 입력해주세요",
+                            toastLength: Toast.LENGTH_LONG,
+                            backgroundColor: Colors.red,
+                            gravity: ToastGravity.BOTTOM,
+                          );
+                        } else if (_emailController.text.isEmpty &&
+                            _passwordController.text.isEmpty) {
+                          Fluttertoast.showToast(
+                            msg: "이메일 및 패스워드를 입력해주세요",
+                            toastLength: Toast.LENGTH_LONG,
+                            backgroundColor: Colors.red,
+                            gravity: ToastGravity.BOTTOM,
+                          );
+                        } else {
+                          loginProcess();
+                        }
+                      },
                     ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,

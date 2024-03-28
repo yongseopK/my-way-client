@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -114,25 +115,6 @@ class _NaverMapAppState extends State<NaverMapApp> {
     }
   }
 
-  Future<void> getLoginInfo() async {
-    token = await storage.read(key: 'token');
-    username = await storage.read(key: 'username');
-    role = await storage.read(key: 'role');
-    email = await storage.read(key: 'email');
-
-    if (token != null) {
-      setState(() {
-        isLogin = true;
-      });
-    } else {
-      setState(() {
-        isLogin = false;
-      });
-    }
-
-    setState(() {});
-  }
-
   @override
   void initState() {
     super.initState();
@@ -141,14 +123,24 @@ class _NaverMapAppState extends State<NaverMapApp> {
     _loadProfile();
   }
 
+  Future<void> getLoginInfo() async {
+    token = await storage.read(key: 'token');
+    username = await storage.read(key: 'username');
+    role = await storage.read(key: 'role');
+    email = await storage.read(key: 'email');
+
+    setState(() {
+      isLogin = token != null;
+    });
+  }
+
   Image? image;
   Uint8List? imageData;
+  Uint8List? snapshotImageData;
 
   Future<void> _loadProfile() async {
     const storage = FlutterSecureStorage();
     final token = await storage.read(key: 'token');
-
-    print('$token');
 
     if (token == null) return;
 
@@ -160,8 +152,26 @@ class _NaverMapAppState extends State<NaverMapApp> {
               headers: {"Authorization": "Bearer $token"}));
 
       if (response.statusCode == 200 && mounted) {
+        final newImageData = Uint8List.fromList(response.data);
+        if (newImageData != snapshotImageData) {
+          setState(() {
+            imageData = Uint8List.fromList(response.data);
+            image = Image.memory(
+              imageData!,
+              width: 80,
+              height: 80,
+              fit: BoxFit.cover,
+            );
+          });
+        }
+      } else {
+        throw Exception('Failed to load profile image');
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 444) {
+        final bytes = await rootBundle.load('assets/images/anonymous.jpeg');
         setState(() {
-          imageData = Uint8List.fromList(response.data);
+          imageData = bytes.buffer.asUint8List();
           image = Image.memory(
             imageData!,
             width: 80,
@@ -169,8 +179,6 @@ class _NaverMapAppState extends State<NaverMapApp> {
             fit: BoxFit.cover,
           );
         });
-      } else {
-        throw Exception('Failed to load profile image');
       }
     } catch (e) {
       print('Error fetching image: $e');
@@ -217,6 +225,7 @@ class _NaverMapAppState extends State<NaverMapApp> {
     }
 
     return GetMaterialApp(
+      initialRoute: "/",
       debugShowCheckedModeBanner: false,
       home: Scaffold(
         drawer: Drawer(
@@ -303,12 +312,14 @@ class _NaverMapAppState extends State<NaverMapApp> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        onTap: () {
-                          Get.to(() => MyPage(
-                                propsImage: imageData!,
-                              ))?.then((value) {
-                            _loadProfile();
-                            getLoginInfo();
+                        onTap: () async {
+                          Get.to(() => MyPage(propsImage: imageData!))!
+                              .then((value) {
+                            if (value == true) {
+                              _loadProfile();
+                            } else if (value == 1) {
+                              logout();
+                            }
                           });
                         },
                       )
