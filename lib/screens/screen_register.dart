@@ -42,6 +42,9 @@ class _SignUpPageState extends State<SignUpPage> {
 
   bool isSignUpButtonEnabled = false;
 
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+
   final correct = [false, false, false, false, false, false, false];
 
   final _dio = Dio();
@@ -63,9 +66,17 @@ class _SignUpPageState extends State<SignUpPage> {
           correct[0] = true;
         });
       }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 417) {
+        setState(() {
+          _emailErrorMessage = e.response!.data.toString();
+          correct[0] = false;
+        });
+      }
     } catch (e) {
       setState(() {
         _emailErrorMessage = '네트워크 오류가 발생했습니다.';
+        correct[0] = false;
       });
       debugPrint("error : $e");
     }
@@ -245,6 +256,7 @@ class _SignUpPageState extends State<SignUpPage> {
                       style: const TextStyle(color: Colors.red),
                     ),
                   TextFormField(
+                    textInputAction: TextInputAction.next,
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
@@ -259,7 +271,9 @@ class _SignUpPageState extends State<SignUpPage> {
                         ),
                       ),
                     ),
-                    onChanged: _checkEmailDuplicate,
+                    onChanged: (value) {
+                      _checkEmailDuplicate(value);
+                    },
                   ),
                   SizedBox(height: height * 0.03),
                   const Text(
@@ -274,6 +288,7 @@ class _SignUpPageState extends State<SignUpPage> {
                       style: const TextStyle(color: Colors.red),
                     ),
                   TextFormField(
+                    textInputAction: TextInputAction.next,
                     controller: _nameController,
                     onChanged: (value) => nameHandler(value),
                     decoration: InputDecoration(
@@ -302,10 +317,21 @@ class _SignUpPageState extends State<SignUpPage> {
                       style: const TextStyle(color: Colors.red),
                     ),
                   TextFormField(
+                    textInputAction: TextInputAction.next,
                     controller: _passwordController,
-                    obscureText: true,
+                    obscureText: _obscurePassword,
                     onChanged: (value) => passwordHandler(value),
                     decoration: InputDecoration(
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscurePassword
+                            ? Icons.visibility
+                            : Icons.visibility_off),
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
                       enabledBorder: UnderlineInputBorder(
                         borderSide: BorderSide(
                           color: _isPasswordValid ? Colors.red : Colors.black,
@@ -331,8 +357,9 @@ class _SignUpPageState extends State<SignUpPage> {
                       style: const TextStyle(color: Colors.red),
                     ),
                   TextFormField(
+                    textInputAction: TextInputAction.next,
                     controller: _confirmPasswordController,
-                    obscureText: true,
+                    obscureText: _obscureConfirmPassword,
                     onChanged: (value) {
                       if (_passwordController.value ==
                           _confirmPasswordController.value) {
@@ -350,6 +377,16 @@ class _SignUpPageState extends State<SignUpPage> {
                       }
                     },
                     decoration: InputDecoration(
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscureConfirmPassword
+                            ? Icons.visibility
+                            : Icons.visibility_off),
+                        onPressed: () {
+                          setState(() {
+                            _obscureConfirmPassword = !_obscureConfirmPassword;
+                          });
+                        },
+                      ),
                       enabledBorder: UnderlineInputBorder(
                         borderSide: BorderSide(
                           color: _isConfirmPasswordValid
@@ -397,6 +434,7 @@ class _SignUpPageState extends State<SignUpPage> {
                       style: const TextStyle(color: Colors.red),
                     ),
                   TextFormField(
+                    textInputAction: TextInputAction.next,
                     controller: _weightController,
                     onChanged: (value) => weightHandler(value),
                     decoration: InputDecoration(
@@ -427,6 +465,7 @@ class _SignUpPageState extends State<SignUpPage> {
                       ),
                     ),
                   TextFormField(
+                    textInputAction: TextInputAction.next,
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(8),
@@ -458,6 +497,7 @@ class _SignUpPageState extends State<SignUpPage> {
                         value: 'male',
                         groupValue: _selectedGender,
                         onChanged: (value) {
+                          FocusScope.of(context).unfocus();
                           setState(() {
                             _selectedGender = value;
                             correct[6] = true;
@@ -469,6 +509,7 @@ class _SignUpPageState extends State<SignUpPage> {
                         value: 'female',
                         groupValue: _selectedGender,
                         onChanged: (value) {
+                          FocusScope.of(context).unfocus();
                           setState(() {
                             _selectedGender = value;
                             correct[6] = true;
